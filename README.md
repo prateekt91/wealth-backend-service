@@ -61,7 +61,7 @@ The service will be available at `http://localhost:8080`.
 **Request Body:**
 ```json
 {
-  "sender": "+919876543210",
+  "sender": "+9198xxxxxxxx",
   "body": "Rs.500 debited from A/c XX1234 to AMAZON on 14-02-2026",
   "receivedAt": "2026-02-14T10:30:00",
   "deviceId": "pixel-7a"
