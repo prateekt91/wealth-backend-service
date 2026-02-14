@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: wealth-postgres
+    environment:
+      POSTGRES_DB: wealth_manager
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wealth-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: wealth-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wealth-network
+
+  wealth-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wealth-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/wealth_manager
+      BRIDGE_API_KEY: ${BRIDGE_API_KEY:-dev-api-key-change-in-production}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - wealth-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  wealth-network:
+    driver: bridge
