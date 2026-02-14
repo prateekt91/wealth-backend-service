@@ -19,7 +19,7 @@ Core backend service for the Wealth Manager application. Receives SMS messages f
 
 ## Prerequisites
 
-- **Java 21** (Eclipse Temurin or similar)
+- **Java 25** (Eclipse Temurin or similar)
 - **Maven 3.9+**
 - **Docker & Docker Compose** (for local infrastructure)
 - **PostgreSQL 16** (or use Docker Compose)
