@@ -17,3 +17,8 @@ spring:
 app:
   security:
     api-key: test-api-key
+  gmail:
+    enabled: false
+    client-id: test-client-id
+    client-secret: test-client-secret
+    refresh-token: ""

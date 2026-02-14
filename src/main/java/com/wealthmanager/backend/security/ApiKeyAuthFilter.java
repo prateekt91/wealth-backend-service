@@ -40,8 +40,10 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
         String requestPath = request.getRequestURI();
 
-        // Skip API key check for non-bridge endpoints and the health endpoint
-        if (!requestPath.startsWith(BRIDGE_PATH_PREFIX) || requestPath.equals(BRIDGE_PATH_PREFIX + "/health")) {
+        // Skip API key check for non-bridge endpoints, health, and Gmail OAuth endpoints
+        if (!requestPath.startsWith(BRIDGE_PATH_PREFIX)
+                || requestPath.equals(BRIDGE_PATH_PREFIX + "/health")
+                || requestPath.startsWith(BRIDGE_PATH_PREFIX + "/gmail")) {
             filterChain.doFilter(request, response);
             return;
         }

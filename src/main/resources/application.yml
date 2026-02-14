@@ -27,6 +27,15 @@ spring:
 app:
   security:
     api-key: ${BRIDGE_API_KEY:dev-api-key-change-in-production}
+  gmail:
+    enabled: ${GMAIL_ENABLED:false}
+    client-id: ${GMAIL_CLIENT_ID:}
+    client-secret: ${GMAIL_CLIENT_SECRET:}
+    refresh-token: ${GMAIL_REFRESH_TOKEN:}
+    poll-interval-ms: ${GMAIL_POLL_INTERVAL_MS:60000}
+    initial-lookback-minutes: ${GMAIL_INITIAL_LOOKBACK_MINUTES:1440}
+    search-keywords: debit,credit,debited,credited,transaction,payment,transferred,UPI,NEFT,IMPS,withdrawn,deposited,statement
+    redirect-uri: ${GMAIL_REDIRECT_URI:http://localhost:8080/api/v1/bridge/gmail/callback}
 
 logging:
   level:

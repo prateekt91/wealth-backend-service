@@ -44,6 +44,11 @@ services:
       DB_PASSWORD: postgres
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/wealth_manager
       BRIDGE_API_KEY: ${BRIDGE_API_KEY:-dev-api-key-change-in-production}
+      GMAIL_ENABLED: ${GMAIL_ENABLED:-false}
+      GMAIL_CLIENT_ID: ${GMAIL_CLIENT_ID:-}
+      GMAIL_CLIENT_SECRET: ${GMAIL_CLIENT_SECRET:-}
+      GMAIL_REFRESH_TOKEN: ${GMAIL_REFRESH_TOKEN:-}
+      GMAIL_POLL_INTERVAL_MS: ${GMAIL_POLL_INTERVAL_MS:-60000}
     ports:
       - "8080:8080"
     depends_on:

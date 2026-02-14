@@ -31,6 +31,9 @@ public class RawIngestion {
     @Column(nullable = false, length = 20)
     private String source;
 
+    @Column(name = "source_id", unique = true)
+    private String sourceId;
+
     @Column(name = "sender_address")
     private String senderAddress;
 

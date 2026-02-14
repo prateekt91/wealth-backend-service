@@ -7,6 +7,11 @@ spring:
       hibernate:
         format_sql: true
 
+app:
+  gmail:
+    enabled: ${GMAIL_ENABLED:false}
+    poll-interval-ms: 120000
+
 logging:
   level:
     com.wealthmanager: DEBUG

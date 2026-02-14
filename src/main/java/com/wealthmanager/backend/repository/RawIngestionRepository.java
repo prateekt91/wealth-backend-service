@@ -10,4 +10,6 @@ import java.util.List;
 public interface RawIngestionRepository extends JpaRepository<RawIngestion, Long> {
 
     List<RawIngestion> findByProcessedFalse();
+
+    boolean existsBySourceId(String sourceId);
 }
