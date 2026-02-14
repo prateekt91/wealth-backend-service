@@ -22,6 +22,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
     private static final String API_KEY_HEADER = "X-API-KEY";
     private static final String BRIDGE_PATH_PREFIX = "/api/v1/bridge";
+    private static final String HEALTH_PATH = "/api/v1/bridge/health";
 
     private final String apiKey;
     private final ObjectMapper objectMapper;
@@ -39,8 +40,8 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
         String requestPath = request.getRequestURI();
 
-        // Only apply API key check to bridge endpoints
-        if (!requestPath.startsWith(BRIDGE_PATH_PREFIX)) {
+        // Skip API key check for non-bridge endpoints and the health endpoint
+        if (!requestPath.startsWith(BRIDGE_PATH_PREFIX) || requestPath.equals(BRIDGE_PATH_PREFIX + "/health")) {
             filterChain.doFilter(request, response);
             return;
         }
