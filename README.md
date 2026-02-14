@@ -6,10 +6,10 @@ Core backend service for the Wealth Manager application. Receives SMS messages f
 
 | Technology      | Version | Purpose                          |
 |-----------------|---------|----------------------------------|
-| Java            | 21      | Runtime                          |
-| Spring Boot     | 3.4.1   | Application framework            |
+| Java            | 25      | Runtime                          |
+| Spring Boot     | 4.0.2   | Application framework            |
 | Spring Security | 6.x     | API key authentication           |
-| Spring Data JPA | 3.x     | Database access (Hibernate)      |
+| Spring Data JPA | 4.x     | Database access (Hibernate)      |
 | PostgreSQL      | 16      | Primary database                 |
 | Flyway          | 10.x    | Database migrations              |
 | WebSocket/STOMP | -       | Real-time push notifications     |
