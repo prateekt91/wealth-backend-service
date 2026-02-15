@@ -17,11 +17,14 @@ public class IngestionService {
 
     private final RawIngestionRepository rawIngestionRepository;
     private final NotificationService notificationService;
+    private final TransactionParsingService transactionParsingService;
 
     public IngestionService(RawIngestionRepository rawIngestionRepository,
-                            NotificationService notificationService) {
+                            NotificationService notificationService,
+                            TransactionParsingService transactionParsingService) {
         this.rawIngestionRepository = rawIngestionRepository;
         this.notificationService = notificationService;
+        this.transactionParsingService = transactionParsingService;
     }
 
     @Transactional
@@ -42,9 +45,7 @@ public class IngestionService {
         log.info("Saved raw ingestion id={}", saved.getId());
 
         notificationService.notifyNewIngestion(saved);
-
-        // TODO: Trigger AI/MCP parsing pipeline asynchronously
-
+        transactionParsingService.processAsync(saved.getId());
         return saved;
     }
 
@@ -75,9 +76,7 @@ public class IngestionService {
         log.info("Saved email ingestion id={}, gmailId={}", saved.getId(), gmailMessageId);
 
         notificationService.notifyNewIngestion(saved);
-
-        // TODO: Trigger AI/MCP parsing pipeline asynchronously
-
+        transactionParsingService.processAsync(saved.getId());
         return saved;
     }
 

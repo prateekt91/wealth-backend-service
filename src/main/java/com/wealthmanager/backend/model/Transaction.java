@@ -54,6 +54,10 @@ public class Transaction {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    /** Hash of amount+currency+type+date+merchant for deduplication (SMS vs email same txn). */
+    @Column(name = "dedupe_key", length = 64)
+    private String dedupeKey;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 

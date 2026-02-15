@@ -8,10 +8,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
+
+    /** Used for deduplication: same txn from SMS and email should not be stored twice. */
+    boolean existsByDedupeKeyAndTransactionDateBetween(String dedupeKey, LocalDateTime start, LocalDateTime end);
 
     Page<Transaction> findAllByOrderByTransactionDateDesc(Pageable pageable);
 

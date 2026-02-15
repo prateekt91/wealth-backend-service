@@ -14,6 +14,7 @@ Core backend service for the Wealth Manager application. Receives SMS messages f
 | Flyway          | 10.x    | Database migrations              |
 | WebSocket/STOMP | -       | Real-time push notifications     |
 | Lombok          | -       | Boilerplate reduction            |
+| Spring AI       | 1.0.0-M7| LLM integration (Ollama local)   |
 | Maven           | 3.9+    | Build tool                       |
 | Docker          | -       | Containerization                 |
 
@@ -45,6 +46,21 @@ docker-compose up --build
 ```
 
 The service will be available at `http://localhost:8080`.
+
+## Spring AI / Local LLM (Ollama)
+
+Transaction parsing uses **Spring AI** with a **local LLM** (Ollama) by default. Raw SMS/email text is sent to the model to extract amount, type (DEBIT/CREDIT), merchant, date, etc., and the result is stored as a `Transaction`.
+
+### Setup Ollama (local)
+
+1. Install [Ollama](https://ollama.com/download) and start it (default: `http://localhost:11434`).
+2. Pull a model: `ollama pull llama3.2` (or set `OLLAMA_CHAT_MODEL` to another model).
+3. Set `AI_ENABLED=true` (default) and optionally:
+   - `OLLAMA_BASE_URL` – Ollama server URL (default `http://localhost:11434`)
+   - `OLLAMA_CHAT_MODEL` – model name (default `llama3.2`)
+   - `AI_BACKLOG_INTERVAL_MS` – how often to process unprocessed ingestions (default 300000 = 5 min)
+
+When `AI_ENABLED=false`, a no-op parser is used (no LLM calls). The design allows adding **public LLM** support (e.g. OpenAI, Azure) later via the same `TransactionParser` interface and `app.ai.provider` configuration.
 
 ## API Endpoints
 
@@ -109,6 +125,11 @@ The service will be available at `http://localhost:8080`.
 | `GMAIL_REDIRECT_URI` | `http://localhost:8080/api/v1/bridge/gmail/callback` | OAuth redirect URI |
 | `GMAIL_POLL_INTERVAL_MS` | `60000`                         | How often to poll Gmail (ms)     |
 | `GMAIL_INITIAL_LOOKBACK_MINUTES` | `1440`                    | How far back to scan on first run (minutes) |
+| `AI_ENABLED` | `true` | Use LLM for transaction parsing |
+| `AI_PROVIDER` | `ollama` | LLM provider (future: openai, azure) |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
+| `OLLAMA_CHAT_MODEL` | `llama3.2` | Ollama model name |
+| `AI_BACKLOG_INTERVAL_MS` | `300000` | Backlog parsing interval (ms) |
 
 ## Gmail API – Fetching transaction emails
 

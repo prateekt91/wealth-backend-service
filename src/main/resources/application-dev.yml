@@ -16,5 +16,7 @@ logging:
   level:
     com.wealthmanager: DEBUG
     org.springframework.web: DEBUG
+    # Avoid logging full LLM request body (system prompt + schema) at DEBUG
+    org.springframework.web.client.DefaultRestClient: INFO
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
