@@ -6,10 +6,10 @@ Core backend service for the Wealth Manager application. Receives SMS messages f
 
 | Technology      | Version | Purpose                          |
 |-----------------|---------|----------------------------------|
-| Java            | 21      | Runtime                          |
-| Spring Boot     | 3.4.1   | Application framework            |
+| Java            | 25      | Runtime                          |
+| Spring Boot     | 4.0.2   | Application framework            |
 | Spring Security | 6.x     | API key authentication           |
-| Spring Data JPA | 3.x     | Database access (Hibernate)      |
+| Spring Data JPA | 4.x     | Database access (Hibernate)      |
 | PostgreSQL      | 16      | Primary database                 |
 | Flyway          | 10.x    | Database migrations              |
 | WebSocket/STOMP | -       | Real-time push notifications     |
@@ -19,7 +19,7 @@ Core backend service for the Wealth Manager application. Receives SMS messages f
 
 ## Prerequisites
 
-- **Java 21** (Eclipse Temurin or similar)
+- **Java 25** (Eclipse Temurin or similar)
 - **Maven 3.9+**
 - **Docker & Docker Compose** (for local infrastructure)
 - **PostgreSQL 16** (or use Docker Compose)
@@ -61,7 +61,7 @@ The service will be available at `http://localhost:8080`.
 **Request Body:**
 ```json
 {
-  "sender": "+919876543210",
+  "sender": "+9198xxxxxxxx",
   "body": "Rs.500 debited from A/c XX1234 to AMAZON on 14-02-2026",
   "receivedAt": "2026-02-14T10:30:00",
   "deviceId": "pixel-7a"
