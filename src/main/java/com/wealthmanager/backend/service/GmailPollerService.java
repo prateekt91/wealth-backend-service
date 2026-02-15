@@ -32,6 +32,7 @@ public class GmailPollerService {
     private final GmailClientConfig gmailConfig;
     private final IngestionService ingestionService;
     private final AtomicLong lastPollEpochSeconds;
+    private volatile Long lastPollTimeMs;
 
     public GmailPollerService(Gmail gmail,
                               GmailClientConfig gmailConfig,
@@ -73,10 +74,16 @@ public class GmailPollerService {
 
             // Move the window forward (with 60s overlap for safety)
             lastPollEpochSeconds.set(pollStartEpoch - 60);
-
         } catch (Exception e) {
             log.error("Error polling Gmail: {}", e.getMessage(), e);
+        } finally {
+            lastPollTimeMs = System.currentTimeMillis();
         }
+    }
+
+    /** Epoch millis of last poll run (null if never run). */
+    public Long getLastPollTimeMs() {
+        return lastPollTimeMs;
     }
 
     private String buildSearchQuery(long afterEpochSeconds) {

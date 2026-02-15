@@ -36,6 +36,11 @@ public class GmailClientConfig {
     @Value("${app.gmail.refresh-token:}")
     private String refreshToken;
 
+    /** Whether a refresh token is configured (without exposing the token). */
+    public boolean hasRefreshToken() {
+        return refreshToken != null && !refreshToken.isBlank();
+    }
+
     @Getter
     @Value("${app.gmail.redirect-uri:http://localhost:8080/api/v1/bridge/gmail/callback}")
     private String redirectUri;

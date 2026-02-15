@@ -9,8 +9,8 @@ spring:
 
 app:
   gmail:
-    enabled: ${GMAIL_ENABLED:false}
-    poll-interval-ms: 120000
+    enabled: ${GMAIL_ENABLED:true}
+    poll-interval-ms: 60000
 
 logging:
   level:

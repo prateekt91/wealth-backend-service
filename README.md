@@ -102,6 +102,102 @@ The service will be available at `http://localhost:8080`.
 | `DB_PASSWORD`    | `postgres`                           | PostgreSQL password             |
 | `BRIDGE_API_KEY` | `dev-api-key-change-in-production`   | API key for bridge endpoints    |
 | `SPRING_PROFILES_ACTIVE` | (none)                       | Active Spring profile (`dev`)   |
+| `GMAIL_ENABLED`  | `false`                              | Set `true` to enable Gmail polling |
+| `GMAIL_CLIENT_ID` | (none)                              | Google OAuth 2.0 Client ID      |
+| `GMAIL_CLIENT_SECRET` | (none)                            | Google OAuth 2.0 Client Secret  |
+| `GMAIL_REFRESH_TOKEN` | (none)                            | Refresh token from OAuth flow   |
+| `GMAIL_REDIRECT_URI` | `http://localhost:8080/api/v1/bridge/gmail/callback` | OAuth redirect URI |
+| `GMAIL_POLL_INTERVAL_MS` | `60000`                         | How often to poll Gmail (ms)     |
+| `GMAIL_INITIAL_LOOKBACK_MINUTES` | `1440`                    | How far back to scan on first run (minutes) |
+
+## Gmail API – Fetching transaction emails
+
+The backend can poll Gmail (read-only) for transaction-related emails (debits, credits, UPI, etc.) and ingest them like SMS. Setup is a one-time OAuth2 flow plus configuration.
+
+### 1. Create Google Cloud project and enable Gmail API
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a new project (or select one) → **APIs & Services** → **Library**.
+3. Search for **Gmail API** and **Enable** it.
+
+### 2. Create OAuth 2.0 credentials
+
+1. **APIs & Services** → **Credentials** → **Create Credentials** → **OAuth client ID**.
+2. If prompted, configure the **OAuth consent screen**:
+   - User type: **External** (or Internal for Workspace).
+   - App name: e.g. `Wealth Manager`.
+   - Add your email under **Developer contact**.
+   - Scopes: add **`https://www.googleapis.com/auth/gmail.readonly`**.
+   - Save.
+3. Create the OAuth client:
+   - Application type: **Web application**.
+   - Name: e.g. `Wealth Manager Backend`.
+   - **Authorized redirect URIs**: add:
+     - `http://localhost:8080/api/v1/bridge/gmail/callback` (local)
+     - If you deploy, add your production URL, e.g. `https://your-domain.com/api/v1/bridge/gmail/callback`.
+4. Click **Create**. Copy the **Client ID** and **Client Secret**.
+
+### 3. Configure the backend
+
+Set the client ID and secret (env vars or `application.yml` / `application-dev.yml`):
+
+```bash
+# Windows (PowerShell)
+$env:GMAIL_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+$env:GMAIL_CLIENT_SECRET="your-client-secret"
+
+# Or in application-dev.yml (do not commit secrets; use env vars in production)
+# app.gmail.client-id: ${GMAIL_CLIENT_ID}
+# app.gmail.client-secret: ${GMAIL_CLIENT_SECRET}
+```
+
+Do **not** set `GMAIL_ENABLED=true` or `GMAIL_REFRESH_TOKEN` yet.
+
+### 4. Get the refresh token (one-time OAuth flow)
+
+1. Start the backend (e.g. `mvn spring-boot:run "-Dspring-boot.run.profiles=dev"`).
+2. Open in browser:
+   ```text
+   http://localhost:8080/api/v1/bridge/gmail/auth-url
+   ```
+   Or call it with curl and open the returned `authUrl` in the browser.
+3. Sign in with the Google account that receives transaction emails and **Allow** access.
+4. You will be redirected to a URL like:
+   ```text
+   http://localhost:8080/api/v1/bridge/gmail/callback?code=4/0A...
+   ```
+   The page will show a JSON response containing **`refreshToken`**.
+5. Copy the **refresh token** and set it:
+   ```bash
+   $env:GMAIL_REFRESH_TOKEN="the-refresh-token-from-callback"
+   ```
+
+### 5. Enable Gmail polling and restart
+
+```bash
+$env:GMAIL_ENABLED="true"
+# Restart the application
+```
+
+Optional tuning (env or config):
+
+- **GMAIL_POLL_INTERVAL_MS** – interval between Gmail polls (default `60000` = 1 minute).
+- **GMAIL_INITIAL_LOOKBACK_MINUTES** – how far back to look on first run (default `1440` = 24 hours).
+- **app.gmail.search-keywords** – comma-separated keywords used to find transaction emails (default includes: debit, credit, debited, credited, UPI, NEFT, etc.).
+
+After restart, the backend will:
+
+- Poll Gmail on the configured interval.
+- Search INBOX for messages matching the keywords and date range.
+- Ingest matching emails into the same pipeline as SMS (raw ingestion → parsing later).
+
+### Gmail endpoints (no API key required for these)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/bridge/gmail/auth-url` | Returns Google OAuth consent URL |
+| GET | `/api/v1/bridge/gmail/callback?code=...` | OAuth callback; returns refresh token |
+| GET | `/api/v1/bridge/gmail/status` | Status (enabled, has token, poll interval, keywords) |
 
 ## Architecture
 

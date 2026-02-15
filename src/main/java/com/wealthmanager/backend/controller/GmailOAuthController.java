@@ -6,6 +6,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeToken
 import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
 import com.google.api.services.gmail.GmailScopes;
 import com.wealthmanager.backend.config.GmailClientConfig;
+import com.wealthmanager.backend.service.GmailPollerService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.util.Optional;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
@@ -37,13 +40,16 @@ public class GmailOAuthController {
     private final GmailClientConfig gmailConfig;
     private final NetHttpTransport httpTransport;
     private final GsonFactory jsonFactory;
+    private final Optional<GmailPollerService> gmailPollerService;
 
     public GmailOAuthController(GmailClientConfig gmailConfig,
                                 NetHttpTransport httpTransport,
-                                GsonFactory jsonFactory) {
+                                GsonFactory jsonFactory,
+                                Optional<GmailPollerService> gmailPollerService) {
         this.gmailConfig = gmailConfig;
         this.httpTransport = httpTransport;
         this.jsonFactory = jsonFactory;
+        this.gmailPollerService = gmailPollerService;
     }
 
     @GetMapping("/auth-url")
@@ -122,11 +128,17 @@ public class GmailOAuthController {
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> getGmailStatus() {
         Map<String, Object> status = new LinkedHashMap<>();
-        status.put("enabled", !gmailConfig.getClientId().isBlank()
-                && !gmailConfig.getClientSecret().isBlank());
-        status.put("hasRefreshToken", gmailConfig.getClientId() != null);
+        boolean credentialsSet = gmailConfig.getClientId() != null && !gmailConfig.getClientId().isBlank()
+                && gmailConfig.getClientSecret() != null && !gmailConfig.getClientSecret().isBlank();
+        status.put("enabled", credentialsSet);
+        status.put("hasRefreshToken", gmailConfig.hasRefreshToken());
+        status.put("schedulerActive", gmailPollerService.isPresent());
         status.put("pollIntervalMs", gmailConfig.getPollIntervalMs());
         status.put("searchKeywords", gmailConfig.getSearchKeywords());
+        gmailPollerService
+                .map(GmailPollerService::getLastPollTimeMs)
+                .filter(t -> t != null)
+                .ifPresent(ms -> status.put("lastPollAt", Instant.ofEpochMilli(ms).toString()));
         return ResponseEntity.ok(status);
     }
 }
