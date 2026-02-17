@@ -1,5 +1,6 @@
 package com.wealthmanager.backend.ai.impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wealthmanager.backend.ai.TransactionParser;
 import com.wealthmanager.backend.model.dto.TransactionParseResult;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,10 +26,24 @@ import java.util.Optional;
 public class LlmTransactionParser implements TransactionParser {
 
     private static final String SYSTEM_INSTRUCTIONS = """
-        You are a financial message parser. Extract exactly one bank/UPI transaction from the given message.
-        Return ONLY valid JSON matching the required schema. If the message is not a transaction (e.g. OTP, promo), return {"transactionType":"NONE","amount":0}.
-        Use transactionType "DEBIT" or "CREDIT". Use ISO-8601 for transactionDate (e.g. 2026-02-14T10:30:00).
-        Amount must be a positive number. Currency default is INR.
+        You are a financial transaction parser. Your ONLY job is to extract transaction details from SMS/email messages.
+        
+        CRITICAL RULES:
+        1. You MUST respond with ONLY a JSON object matching the exact schema provided below.
+        2. Do NOT include any other text, explanations, markdown, CSS, code blocks, or formatting.
+        3. Your response must start with { and end with }.
+        4. If the message is NOT a transaction (e.g. OTP, promotional message, general information), return: {"transactionType":"NONE","amount":0}
+        5. Do NOT answer questions, provide explanations, or return information unrelated to transactions.
+        6. Do NOT return nested objects or arrays - only flat JSON with the fields: amount, currency, merchantName, category, transactionType, transactionDate, description
+        
+        Transaction fields:
+        - amount: positive number (required)
+        - currency: string, default "INR" (optional)
+        - merchantName: string (optional)
+        - category: string (optional)
+        - transactionType: "DEBIT" or "CREDIT" (required)
+        - transactionDate: ISO-8601 format like "2026-02-14T10:30:00" (optional)
+        - description: string (optional)
         """;
 
     private final ChatModel chatModel;
@@ -51,15 +67,20 @@ public class LlmTransactionParser implements TransactionParser {
         String formatInstructions = outputConverter.getFormat();
         String systemMessage = SYSTEM_INSTRUCTIONS + "\n\n" + formatInstructions;
         String userMessage = String.format("""
-            Parse this message. Respond with only a single JSON object (no other text, no markdown):
-
-            ---
+            Parse this financial message and extract transaction details.
+            
+            IMPORTANT: Respond with ONLY a JSON object. No markdown, no code blocks, no CSS, no explanations.
+            Start your response with { and end with }.
+            
+            Message to parse:
             %s
-            ---
+            
+            JSON only:
             """, rawText.trim());
 
         try {
-            log.info("Calling LLM for message length={}", rawText.length());
+            log.info("Calling LLM for message length={}. First 200 chars: {}",
+                    rawText.length(), rawText.length() > 200 ? rawText.substring(0, 200) + "..." : rawText);
             var prompt = new Prompt(List.of(
                     new org.springframework.ai.chat.messages.SystemMessage(systemMessage),
                     new org.springframework.ai.chat.messages.UserMessage(userMessage)
@@ -75,6 +96,24 @@ public class LlmTransactionParser implements TransactionParser {
             if (jsonOnly.isBlank()) {
                 log.warn("LLM response contained no JSON object (content length={}). First 200 chars: {}",
                         content.length(), content.length() > 200 ? content.substring(0, 200) + "..." : content);
+                return Optional.empty();
+            }
+
+            // Validate that extracted text is actually JSON before attempting to parse
+            if (!isValidJson(jsonOnly)) {
+                log.warn("LLM response extracted text is not valid JSON (length={}). First 200 chars: {}",
+                        jsonOnly.length(), jsonOnly.length() > 200 ? jsonOnly.substring(0, 200) + "..." : jsonOnly);
+                log.warn("Full LLM response (first 500 chars): {}",
+                        content.length() > 500 ? content.substring(0, 500) + "..." : content);
+                return Optional.empty();
+            }
+
+            // Validate that JSON matches the expected schema before attempting conversion
+            if (!matchesTransactionSchema(jsonOnly)) {
+                log.warn("LLM response does not match TransactionParseResult schema (length={}). First 300 chars: {}",
+                        jsonOnly.length(), jsonOnly.length() > 300 ? jsonOnly.substring(0, 300) + "..." : jsonOnly);
+                log.warn("Full LLM response (first 500 chars): {}",
+                        content.length() > 500 ? content.substring(0, 500) + "..." : content);
                 return Optional.empty();
             }
 
@@ -132,5 +171,95 @@ public class LlmTransactionParser implements TransactionParser {
             }
         }
         return s.substring(firstBrace);
+    }
+
+    /**
+     * Validates that the extracted text is actually valid JSON (not CSS or other text).
+     * Checks for JSON-like structure: starts with {, contains quoted keys, etc.
+     */
+    private boolean isValidJson(String text) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        String trimmed = text.trim();
+        if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+            return false;
+        }
+        // Check for JSON-like patterns: quoted keys, colons, etc.
+        // CSS would have properties like "font-family:" without quotes around the key
+        // JSON must have quoted keys like "key":
+        if (!trimmed.contains("\"")) {
+            // JSON should have at least one quoted string (key or value)
+            return false;
+        }
+        // Quick validation: try to parse with ObjectMapper to see if it's valid JSON
+        try {
+            objectMapper.readTree(trimmed);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Validates that the JSON matches the TransactionParseResult schema.
+     * Checks for required fields: amount, transactionType.
+     * Also checks that it's a flat object (not nested structures like the Visa/Mastercard example).
+     */
+    private boolean matchesTransactionSchema(String jsonText) {
+        if (jsonText == null || jsonText.isBlank()) {
+            return false;
+        }
+        try {
+            JsonNode root = objectMapper.readTree(jsonText);
+            if (!root.isObject()) {
+                return false;
+            }
+            
+            // Check for required fields
+            if (!root.has("amount") || !root.has("transactionType")) {
+                return false;
+            }
+            
+            // Check that amount is a number
+            JsonNode amountNode = root.get("amount");
+            if (!amountNode.isNumber() && !amountNode.isTextual()) {
+                // Allow textual numbers (will be parsed later)
+                return false;
+            }
+            
+            // Check that transactionType is a string
+            JsonNode typeNode = root.get("transactionType");
+            if (!typeNode.isTextual()) {
+                return false;
+            }
+            
+            // Reject nested objects that don't belong to transaction schema
+            // TransactionParseResult fields: amount, currency, merchantName, category, transactionType, transactionDate, description
+            // All should be primitives or null, not nested objects
+            Iterator<String> fieldNamesIterator = root.fieldNames();
+            while (fieldNamesIterator.hasNext()) {
+                String fieldName = fieldNamesIterator.next();
+                JsonNode fieldValue = root.get(fieldName);
+                // If it's a nested object or array (and not one of the expected simple fields), reject it
+                if ((fieldValue.isObject() || fieldValue.isArray()) && !isExpectedComplexField(fieldName)) {
+                    return false;
+                }
+            }
+            
+            return true;
+        } catch (Exception e) {
+            log.debug("Schema validation failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Checks if a field name is expected to have a complex (object/array) value.
+     * For TransactionParseResult, all fields are primitives/null, so this returns false.
+     */
+    private boolean isExpectedComplexField(String fieldName) {
+        // TransactionParseResult has no complex fields - all are primitives
+        return false;
     }
 }
