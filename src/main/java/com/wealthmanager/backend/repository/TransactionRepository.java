@@ -14,12 +14,13 @@ import java.util.List;
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
-    /** Used for deduplication: same txn from SMS and email should not be stored twice. */
     boolean existsByDedupeKeyAndTransactionDateBetween(String dedupeKey, LocalDateTime start, LocalDateTime end);
 
     Page<Transaction> findAllByOrderByTransactionDateDesc(Pageable pageable);
 
     List<Transaction> findByCategory(String category);
+
+    List<Transaction> findByTransactionTypeOrderByTransactionDateDesc(String transactionType, Pageable pageable);
 
     @Query("SELECT COUNT(t) FROM Transaction t")
     long countAll();

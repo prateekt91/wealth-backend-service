@@ -6,7 +6,7 @@ import org.springframework.ai.model.tool.DefaultToolCallingManager;
 import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.ollama.api.OllamaApi;
-import org.springframework.ai.ollama.api.OllamaOptions;
+import org.springframework.ai.ollama.api.OllamaChatOptions;
 import org.springframework.ai.ollama.management.ModelManagementOptions;
 import org.springframework.ai.tool.execution.DefaultToolExecutionExceptionProcessor;
 import org.springframework.ai.tool.resolution.StaticToolCallbackResolver;
@@ -50,7 +50,7 @@ public class OllamaConfig {
 
     @Bean("ollamaChatModel")
     public ChatModel ollamaChatModel(OllamaApi ollamaApi, ToolCallingManager toolCallingManager) {
-        OllamaOptions options = OllamaOptions.builder()
+        OllamaChatOptions options = OllamaChatOptions.builder()
                 .model(chatModel)
                 .build();
         return new OllamaChatModel(ollamaApi, options, toolCallingManager, ObservationRegistry.NOOP, ModelManagementOptions.defaults());

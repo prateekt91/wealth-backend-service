@@ -18,13 +18,16 @@ public class IngestionService {
     private final RawIngestionRepository rawIngestionRepository;
     private final NotificationService notificationService;
     private final TransactionParsingService transactionParsingService;
+    private final HoldingsParsingService holdingsParsingService;
 
     public IngestionService(RawIngestionRepository rawIngestionRepository,
                             NotificationService notificationService,
-                            TransactionParsingService transactionParsingService) {
+                            TransactionParsingService transactionParsingService,
+                            HoldingsParsingService holdingsParsingService) {
         this.rawIngestionRepository = rawIngestionRepository;
         this.notificationService = notificationService;
         this.transactionParsingService = transactionParsingService;
+        this.holdingsParsingService = holdingsParsingService;
     }
 
     @Transactional
@@ -46,6 +49,7 @@ public class IngestionService {
 
         notificationService.notifyNewIngestion(saved);
         transactionParsingService.processAsync(saved.getId());
+        holdingsParsingService.processAsync(saved.getId());
         return saved;
     }
 
@@ -77,6 +81,7 @@ public class IngestionService {
 
         notificationService.notifyNewIngestion(saved);
         transactionParsingService.processAsync(saved.getId());
+        holdingsParsingService.processAsync(saved.getId());
         return saved;
     }
 

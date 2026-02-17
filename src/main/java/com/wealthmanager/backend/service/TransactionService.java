@@ -12,7 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -34,6 +36,13 @@ public class TransactionService {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Transaction not found with id: " + id));
         return toResponse(transaction);
+    }
+
+    public List<TransactionResponse> getTransactionsByType(String transactionType, Pageable pageable) {
+        return transactionRepository.findByTransactionTypeOrderByTransactionDateDesc(transactionType, pageable)
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
     public Map<String, Object> getTransactionSummary() {

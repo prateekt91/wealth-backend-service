@@ -37,6 +37,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/transactions/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/v1/bridge/gmail/**").permitAll()
+                        .requestMatchers("/mcp/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class);

@@ -4,6 +4,24 @@ server:
 spring:
   application:
     name: wealth-backend-service
+  ai:
+    mcp:
+      server:
+        name: wealth-manager-mcp
+        version: 1.0.0
+        type: SYNC
+        protocol: SSE
+        annotation-scanner:
+          enabled: true
+        capabilities:
+          tool: true
+    model:
+      chat: ollama
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        options:
+          model: ${OLLAMA_CHAT_MODEL:llama3.2}
   datasource:
     url: jdbc:postgresql://localhost:5432/wealth_manager
     username: ${DB_USERNAME:postgres}
@@ -16,9 +34,9 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: false
+    open-in-view: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
   flyway:
     enabled: true
@@ -28,7 +46,7 @@ app:
   security:
     api-key: ${BRIDGE_API_KEY:dev-api-key-change-in-production}
   gmail:
-    enabled: ${GMAIL_ENABLED:false}
+    enabled: ${GMAIL_ENABLED:true}
     client-id: ${GMAIL_CLIENT_ID:}
     client-secret: ${GMAIL_CLIENT_SECRET:}
     refresh-token: ${GMAIL_REFRESH_TOKEN:}
@@ -36,6 +54,19 @@ app:
     initial-lookback-minutes: ${GMAIL_INITIAL_LOOKBACK_MINUTES:1440}
     search-keywords: debit,credit,debited,credited,transaction,payment,transferred,UPI,NEFT,IMPS,withdrawn,deposited,statement
     redirect-uri: ${GMAIL_REDIRECT_URI:http://localhost:8080/api/v1/bridge/gmail/callback}
+  ai:
+    # Provider: ollama (local) | openai | azure (future)
+    provider: ${AI_PROVIDER:ollama}
+    enabled: ${AI_ENABLED:true}
+    backlog-interval-ms: ${AI_BACKLOG_INTERVAL_MS:300000}
+    # Ollama (local LLM)
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat-model: ${OLLAMA_CHAT_MODEL:deepseek-r1:8b}
+    # Placeholder for future public LLM (e.g. OpenAI)
+    # openai:
+    #   api-key: ${OPENAI_API_KEY:}
+    #   chat-model: ${OPENAI_CHAT_MODEL:gpt-4o-mini}
 
 logging:
   level:
