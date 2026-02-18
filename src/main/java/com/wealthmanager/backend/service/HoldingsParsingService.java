@@ -23,9 +23,25 @@ import java.util.regex.Pattern;
 @Slf4j
 public class HoldingsParsingService {
 
-    private static final Pattern SIP_OR_PURCHASE = Pattern.compile(
-            "(?:purchased|bought|SIP|redeemed|sold)\\s+([\\d.,]+)\\s+(?:units?|shares?)\\s+(?:of\\s+)?([A-Za-z0-9\\s]+?)(?:\\s+at|\\s+for|\\s+@|$)",
-            Pattern.CASE_INSENSITIVE);
+    // Multiple patterns to catch different message formats
+    private static final Pattern[] PATTERNS = {
+            // Format: "purchased 100 units of XYZ" or "bought 50 shares of ABC"
+            Pattern.compile(
+                    "(?:purchased|bought|SIP|redeemed|sold)\\s+([\\d.,]+)\\s+(?:units?|shares?)\\s+(?:of\\s+)?([A-Za-z0-9\\s]+?)(?:\\s+at|\\s+for|\\s+@|$)",
+                    Pattern.CASE_INSENSITIVE),
+            // Format: "SIP of Rs.1000 processed for ABC Fund" or "Invested Rs.5000 in XYZ"
+            Pattern.compile(
+                    "(?:SIP|invested|investment|purchase|purchased)\\s+(?:of\\s+)?(?:Rs\\.?|INR|₹)?\\s*([\\d.,]+)\\s+(?:in|for|into)\\s+([A-Za-z0-9\\s]+?)(?:\\s+fund|\\s+mutual\\s+fund|\\s+scheme|$)",
+                    Pattern.CASE_INSENSITIVE),
+            // Format: "Units credited: 45.1234" or "Shares credited: 10"
+            Pattern.compile(
+                    "(?:units?|shares?)\\s+(?:credited|allotted|purchased|bought):\\s*([\\d.,]+)\\s+(?:of|in|for)?\\s*([A-Za-z0-9\\s]+?)?",
+                    Pattern.CASE_INSENSITIVE),
+            // Format: "10 shares RELIANCE" or "100 units XYZ Fund"
+            Pattern.compile(
+                    "([\\d.,]+)\\s+(?:units?|shares?)\\s+([A-Za-z0-9\\s]+?)(?:\\s+has|\\s+been|\\s+at|\\s+for|$)",
+                    Pattern.CASE_INSENSITIVE)
+    };
 
     private final RawIngestionRepository rawIngestionRepository;
     private final CleanLedgerService cleanLedgerService;
@@ -52,11 +68,20 @@ public class HoldingsParsingService {
     protected void process(RawIngestion raw) {
         String body = raw.getRawBody();
         if (body == null || body.isBlank()) {
+            log.debug("Holdings parsing skipped: empty body for raw_ingestion_id={}", raw.getId());
             return;
         }
+        
+        log.debug("Holdings parsing started for raw_ingestion_id={}, body length={}, first 200 chars: {}",
+                raw.getId(), body.length(), body.length() > 200 ? body.substring(0, 200) + "..." : body);
+        
+        boolean foundAny = false;
         try {
-            Matcher m = SIP_OR_PURCHASE.matcher(body);
-            while (m.find()) {
+            // Try each pattern
+            for (Pattern pattern : PATTERNS) {
+                Matcher m = pattern.matcher(body);
+                while (m.find()) {
+                    foundAny = true;
                 String qtyStr = m.group(1).replace(",", "");
                 String nameOrSymbol = m.group(2).trim();
                 if (nameOrSymbol.length() > 100) {
@@ -102,10 +127,21 @@ public class HoldingsParsingService {
                     }
                 } catch (NumberFormatException e) {
                     log.debug("Skip non-numeric quantity: {}", qtyStr);
+                } catch (Exception e) {
+                    log.warn("Error processing match in holdings parsing for raw_ingestion_id={}: {}",
+                            raw.getId(), e.getMessage(), e);
                 }
             }
+            }
+            
+            if (!foundAny) {
+                log.debug("Holdings parsing: no matches found for raw_ingestion_id={}. Message might not contain purchase/SIP/redemption info.",
+                        raw.getId());
+            } else {
+                log.info("Holdings parsing completed for raw_ingestion_id={}", raw.getId());
+            }
         } catch (Exception e) {
-            log.warn("Holdings parsing failed for raw_ingestion_id={}: {}", raw.getId(), e.getMessage());
+            log.warn("Holdings parsing failed for raw_ingestion_id={}: {}", raw.getId(), e.getMessage(), e);
         }
     }
 

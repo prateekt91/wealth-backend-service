@@ -6,6 +6,7 @@ import com.google.api.services.gmail.model.Message;
 import com.google.api.services.gmail.model.MessagePart;
 import com.google.api.services.gmail.model.MessagePartHeader;
 import com.wealthmanager.backend.config.GmailClientConfig;
+import com.wealthmanager.backend.model.RawIngestion;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -140,8 +141,20 @@ public class GmailPollerService {
                 // Build composite body: subject + body for AI parsing later
                 String compositeBody = buildCompositeBody(subject, body);
 
-                ingestionService.ingestEmail(gmailMessageId, sender, compositeBody, receivedAt);
-                log.info("Ingested Gmail email id={}, subject={}", gmailMessageId, subject);
+                // Validate if email is fit for ingestion
+                if (!ingestionService.isFitForIngestion(compositeBody)) {
+                    log.info("Skipping email id={}, subject={} - not fit for ingestion (no financial data)", 
+                            gmailMessageId, subject);
+                    ingestionService.markAsSkipped(gmailMessageId, sender, receivedAt);
+                    continue;
+                }
+
+                RawIngestion ingested = ingestionService.ingestEmail(gmailMessageId, sender, compositeBody, receivedAt);
+                if (ingested != null) {
+                    log.info("Ingested Gmail email id={}, subject={}", gmailMessageId, subject);
+                } else {
+                    log.debug("Email already ingested, skipped gmailId={}", gmailMessageId);
+                }
 
             } catch (Exception e) {
                 log.error("Error processing Gmail message id={}: {}",

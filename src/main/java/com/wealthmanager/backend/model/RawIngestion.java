@@ -50,6 +50,10 @@ public class RawIngestion {
     @Column(name = "processed_at")
     private LocalDateTime processedAt;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean ingested = false;
+
     @PrePersist
     protected void onCreate() {
         if (receivedAt == null) {

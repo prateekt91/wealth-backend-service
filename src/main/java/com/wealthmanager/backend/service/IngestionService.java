@@ -42,10 +42,15 @@ public class IngestionService {
                 .rawBody(payload.body())
                 .receivedAt(receivedAt)
                 .processed(false)
+                .ingested(false)
                 .build();
 
         RawIngestion saved = rawIngestionRepository.save(ingestion);
-        log.info("Saved raw ingestion id={}", saved.getId());
+        
+        // Mark as successfully ingested
+        saved.setIngested(true);
+        saved = rawIngestionRepository.save(saved);
+        log.info("Saved raw ingestion id={}, ingested=true", saved.getId());
 
         notificationService.notifyNewIngestion(saved);
         transactionParsingService.processAsync(saved.getId());
@@ -65,6 +70,12 @@ public class IngestionService {
     @Transactional
     public RawIngestion ingestEmail(String gmailMessageId, String sender,
                                     String body, LocalDateTime receivedAt) {
+        // Check if already ingested using the ingested indicator
+        if (isAlreadyIngested(gmailMessageId)) {
+            log.debug("Skipping already ingested email gmailId={}", gmailMessageId);
+            return null;
+        }
+
         log.info("Ingesting email from sender={}, gmailId={}", sender, gmailMessageId);
 
         RawIngestion ingestion = RawIngestion.builder()
@@ -74,10 +85,15 @@ public class IngestionService {
                 .rawBody(body)
                 .receivedAt(receivedAt != null ? receivedAt : LocalDateTime.now())
                 .processed(false)
+                .ingested(false)
                 .build();
 
         RawIngestion saved = rawIngestionRepository.save(ingestion);
-        log.info("Saved email ingestion id={}, gmailId={}", saved.getId(), gmailMessageId);
+        
+        // Mark as successfully ingested
+        saved.setIngested(true);
+        saved = rawIngestionRepository.save(saved);
+        log.info("Saved email ingestion id={}, gmailId={}, ingested=true", saved.getId(), gmailMessageId);
 
         notificationService.notifyNewIngestion(saved);
         transactionParsingService.processAsync(saved.getId());
@@ -87,9 +103,93 @@ public class IngestionService {
 
     /**
      * Check if a message with the given sourceId has already been ingested.
+     * Uses the ingested indicator to determine if the record was successfully stored.
      */
     public boolean isAlreadyIngested(String sourceId) {
-        return rawIngestionRepository.existsBySourceId(sourceId);
+        if (sourceId == null || sourceId.isBlank()) {
+            return false;
+        }
+        return rawIngestionRepository.existsBySourceIdAndIngestedTrue(sourceId);
+    }
+
+    /**
+     * Validates if email content is fit for ingestion (contains financial transaction/holding data).
+     * Returns true if the email should be ingested, false if it should be skipped.
+     */
+    public boolean isFitForIngestion(String body) {
+        if (body == null || body.isBlank()) {
+            return false;
+        }
+        
+        String lowerBody = body.toLowerCase();
+        
+        // Must contain financial keywords
+        String[] requiredKeywords = {
+                "debit", "credit", "debited", "credited", "transaction", "payment",
+                "transferred", "upi", "neft", "imps", "withdrawn", "deposited",
+                "purchased", "bought", "sip", "redeemed", "sold", "units", "shares",
+                "mutual fund", "mf", "nav", "stock", "equity", "investment"
+        };
+        
+        boolean hasFinancialKeyword = false;
+        for (String keyword : requiredKeywords) {
+            if (lowerBody.contains(keyword)) {
+                hasFinancialKeyword = true;
+                break;
+            }
+        }
+        
+        if (!hasFinancialKeyword) {
+            return false;
+        }
+        
+        // Exclude promotional/marketing emails
+        String[] excludePatterns = {
+                "unsubscribe", "marketing", "promotion", "offer", "discount",
+                "newsletter", "subscribe", "click here", "limited time"
+        };
+        
+        for (String pattern : excludePatterns) {
+            if (lowerBody.contains(pattern)) {
+                // If it's clearly promotional, skip even if it has financial keywords
+                return false;
+            }
+        }
+        
+        // Must contain numbers (amounts, quantities, etc.)
+        boolean hasNumbers = body.matches(".*\\d+.*");
+        
+        return hasNumbers;
+    }
+
+    /**
+     * Mark an email as skipped (not fit for ingestion) to prevent re-ingestion.
+     * Saves a minimal record with sourceId, processed=true, and ingested=true.
+     */
+    @Transactional
+    public void markAsSkipped(String gmailMessageId, String sender, LocalDateTime receivedAt) {
+        if (gmailMessageId == null || gmailMessageId.isBlank()) {
+            return;
+        }
+        
+        // Check if already ingested using the ingested indicator
+        if (isAlreadyIngested(gmailMessageId)) {
+            return;
+        }
+        
+        RawIngestion skipped = RawIngestion.builder()
+                .source("EMAIL")
+                .sourceId(gmailMessageId)
+                .senderAddress(sender)
+                .rawBody("[SKIPPED - Not fit for ingestion]")
+                .receivedAt(receivedAt != null ? receivedAt : LocalDateTime.now())
+                .processed(true) // Mark as processed so it won't be parsed
+                .processedAt(LocalDateTime.now())
+                .ingested(true) // Mark as ingested to prevent re-ingestion attempts
+                .build();
+        
+        rawIngestionRepository.save(skipped);
+        log.debug("Marked email gmailId={} as skipped (not fit for ingestion), ingested=true", gmailMessageId);
     }
 
     private LocalDateTime parseReceivedAt(String receivedAt) {

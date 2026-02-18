@@ -12,4 +12,8 @@ public interface RawIngestionRepository extends JpaRepository<RawIngestion, Long
     List<RawIngestion> findByProcessedFalse();
 
     boolean existsBySourceId(String sourceId);
+
+    boolean existsBySourceIdAndIngestedTrue(String sourceId);
+
+    List<RawIngestion> findByIngestedFalse();
 }

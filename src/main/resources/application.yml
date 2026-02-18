@@ -11,6 +11,7 @@ spring:
         version: 1.0.0
         type: SYNC
         protocol: SSE
+        sse-message-endpoint: /mcp/message
         annotation-scanner:
           enabled: true
         capabilities:
@@ -62,6 +63,7 @@ app:
     # Ollama (local LLM)
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+     # chat-model: ${OLLAMA_CHAT_MODEL:deepseek-v3.2:cloud}
       chat-model: ${OLLAMA_CHAT_MODEL:deepseek-r1:8b}
     # Placeholder for future public LLM (e.g. OpenAI)
     # openai:
